@@ -1,0 +1,838 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=1920, height=1080" />
+    <script src="https://cdn.jsdelivr.net/npm/gsap@3.14.2/dist/gsap.min.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com" />
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+    <link href="https://fonts.googleapis.com/css2?family=Black+Ops+One&family=Share+Tech+Mono&display=block" rel="stylesheet" />
+    <style>
+      * { margin: 0; padding: 0; box-sizing: border-box; }
+      html, body {
+        width: 1920px; height: 1080px; overflow: hidden;
+        background: #000;
+      }
+
+      #root {
+        position: relative;
+        width: 1920px; height: 1080px;
+        background: #000;
+        overflow: hidden;
+      }
+
+      /* ---- PERSISTENT ELEMENTS ---- */
+      .bg-grid {
+        position: absolute; inset: 0; pointer-events: none;
+        background-image:
+          linear-gradient(rgba(20,20,20,1) 1px, transparent 1px),
+          linear-gradient(90deg, rgba(20,20,20,1) 1px, transparent 1px);
+        background-size: 80px 80px;
+        opacity: 0.6;
+      }
+
+      .scanlines {
+        position: absolute; inset: 0; pointer-events: none; z-index: 95;
+        background-image: repeating-linear-gradient(
+          0deg, transparent, transparent 2px,
+          rgba(0,0,0,0.18) 2px, rgba(0,0,0,0.18) 4px
+        );
+      }
+
+      .vignette {
+        position: absolute; inset: 0; pointer-events: none; z-index: 94;
+        background: radial-gradient(ellipse at center, transparent 50%, rgba(0,0,0,0.75) 100%);
+      }
+
+      /* HUD frame corners */
+      .hud-corner {
+        position: absolute; width: 56px; height: 56px; z-index: 90;
+      }
+      .hud-tl { top: 32px; left: 32px; border-top: 2px solid #FF4500; border-left: 2px solid #FF4500; }
+      .hud-tr { top: 32px; right: 32px; border-top: 2px solid #FF4500; border-right: 2px solid #FF4500; }
+      .hud-bl { bottom: 32px; left: 32px; border-bottom: 2px solid #FF4500; border-left: 2px solid #FF4500; }
+      .hud-br { bottom: 32px; right: 32px; border-bottom: 2px solid #FF4500; border-right: 2px solid #FF4500; }
+
+      .hud-label {
+        position: absolute; z-index: 90;
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 16px; letter-spacing: 0.35em;
+        color: #4A5240; text-transform: uppercase;
+      }
+      .hud-tl-label { top: 36px; left: 100px; }
+      .hud-tr-label { top: 36px; right: 100px; text-align: right; }
+      .hud-bl-label { bottom: 36px; left: 100px; }
+      .hud-br-label { bottom: 36px; right: 100px; text-align: right; }
+
+      /* Sweep bar */
+      .sweep-bar {
+        position: absolute; top: 0; bottom: 0; width: 3px;
+        background: #FF4500; z-index: 80; opacity: 0;
+      }
+
+      /* ---- SCENE CONTAINERS ---- */
+      .scene { position: absolute; inset: 0; z-index: 10; }
+
+      /* ---- SCENE 1: BOOT PROTOCOL ---- */
+      #s1 {
+        display: flex; flex-direction: column;
+        align-items: center; justify-content: center;
+        background: #000;
+      }
+      .boot-lines {
+        display: flex; flex-direction: column; gap: 18px;
+        align-items: flex-start; width: 900px;
+      }
+      .boot-line {
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 26px; letter-spacing: 0.15em;
+        color: #00C853; opacity: 0;
+        white-space: nowrap;
+      }
+      .boot-line.dim { color: #2E7D32; font-size: 20px; }
+      .boot-title {
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 52px; letter-spacing: 0.3em;
+        color: #00FF57; margin-bottom: 48px; opacity: 0;
+        text-align: center; width: 100%;
+        text-shadow: 0 0 30px rgba(0,255,87,0.5);
+      }
+      .cursor-block {
+        display: inline-block; width: 18px; height: 32px;
+        background: #00FF57; vertical-align: middle;
+        margin-left: 4px; opacity: 0;
+      }
+
+      /* ---- SCENE 2: CONTAINER DROP ---- */
+      #s2 { background: #020202; }
+      #s2-label {
+        position: absolute; top: 60px; left: 0; right: 0; text-align: center;
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 20px; letter-spacing: 0.45em; color: #FF4500;
+        text-transform: uppercase; opacity: 0;
+      }
+      #s2-altitude {
+        position: absolute; top: 100px; right: 120px;
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 16px; letter-spacing: 0.3em; color: #4A5240;
+        opacity: 0;
+      }
+
+      /* ---- SCENE 3: UNIT ON GROUND ---- */
+      #s3 { background: #020202; }
+      #s3-label {
+        position: absolute; top: 60px; left: 0; right: 0; text-align: center;
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 20px; letter-spacing: 0.45em; color: #FF4500; opacity: 0;
+      }
+      .hud-stat {
+        position: absolute; z-index: 30;
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 15px; letter-spacing: 0.25em; color: #4A5240; opacity: 0;
+      }
+
+      /* ---- SCENE 4: GRID COVERAGE ---- */
+      #s4 { background: #020202; }
+      #s4-label {
+        position: absolute; top: 60px; left: 0; right: 0; text-align: center;
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 20px; letter-spacing: 0.45em; color: #FF4500; opacity: 0;
+      }
+
+      /* ---- SCENE 5: LOGO SMASH ---- */
+      #s5 { background: #000; display: flex; flex-direction: column; align-items: center; justify-content: center; }
+      #s5-logo {
+        font-family: 'Black Ops One', cursive;
+        font-size: 220px; letter-spacing: 0.08em;
+        color: #CC0000; opacity: 0;
+        text-transform: uppercase; line-height: 1;
+        text-shadow: 0 0 60px rgba(204,0,0,0.4);
+      }
+      #s5-sub {
+        font-family: 'Share Tech Mono', monospace;
+        font-size: 28px; letter-spacing: 0.55em;
+        color: #4A5240; opacity: 0; margin-top: 32px;
+      }
+      /* S5 bracket corners */
+      .s5-bracket {
+        position: absolute; width: 80px; height: 80px; z-index: 30;
+        border-color: #CC0000; opacity: 0;
+      }
+      #s5-br-tl { top: 200px; left: 300px; border-top: 3px solid; border-left: 3px solid; }
+      #s5-br-tr { top: 200px; right: 300px; border-top: 3px solid; border-right: 3px solid; }
+      #s5-br-bl { bottom: 200px; left: 300px; border-bottom: 3px solid; border-left: 3px solid; }
+      #s5-br-br { bottom: 200px; right: 300px; border-bottom: 3px solid; border-right: 3px solid; }
+      #s5-divider {
+        width: 0; height: 4px; background: #CC0000;
+        position: absolute; bottom: 320px; opacity: 0;
+      }
+    </style>
+  </head>
+  <body>
+    <div
+      id="root"
+      data-composition-id="main"
+      data-start="0"
+      data-duration="45"
+      data-width="1920"
+      data-height="1080"
+    >
+      <!-- Persistent background elements -->
+      <div class="bg-grid"></div>
+      <div class="scanlines"></div>
+      <div class="vignette"></div>
+
+      <!-- HUD corners (always visible) -->
+      <div class="hud-corner hud-tl"></div>
+      <div class="hud-corner hud-tr"></div>
+      <div class="hud-corner hud-bl"></div>
+      <div class="hud-corner hud-br"></div>
+      <div class="hud-label hud-tl-label">D3-GS · UNIT 001</div>
+      <div class="hud-label hud-tr-label">FPS 60 · 1920×1080</div>
+      <div class="hud-label hud-bl-label">DEATHLIVERY SYS</div>
+      <div class="hud-label hud-br-label">AUTONOMOUS · ARMED</div>
+
+      <!-- Sweep bars for scene transitions -->
+      <div id="sweep-1-2" class="sweep-bar clip" data-start="7.5" data-duration="0.7" data-track-index="7" style="left:-4px"></div>
+      <div id="sweep-2-3" class="sweep-bar clip" data-start="17.5" data-duration="0.7" data-track-index="7" style="left:-4px"></div>
+      <div id="sweep-3-4" class="sweep-bar clip" data-start="29.5" data-duration="0.7" data-track-index="7" style="left:-4px"></div>
+      <div id="sweep-4-5" class="sweep-bar clip" data-start="39.5" data-duration="0.7" data-track-index="7" style="left:-4px"></div>
+
+      <!-- ============================
+           SCENE 1: BOOT PROTOCOL (0–8s)
+           ============================ -->
+      <div id="s1" class="scene clip" data-start="0" data-duration="8" data-track-index="1">
+        <div class="boot-title" id="s1-title">INITIATING DEATHLIVERY PROTOCOL</div>
+        <div class="boot-lines">
+          <div class="boot-line dim" id="s1-l0">// D3-GS AUTONOMOUS COMBAT SYSTEM — BOOT SEQUENCE v4.1</div>
+          <div class="boot-line" id="s1-l1">[ OK ] POWER CELLS NOMINAL ........... 100%</div>
+          <div class="boot-line" id="s1-l2">[ OK ] NAVIGATION ARRAY ONLINE ........ 4/4</div>
+          <div class="boot-line" id="s1-l3">[ OK ] WEAPONS SYSTEMS ARMED .......... DUAL M134</div>
+          <div class="boot-line" id="s1-l4">[ OK ] UAV SWARM READY ............... 8/8 UNITS</div>
+          <div class="boot-line" id="s1-l5">[ OK ] AUTONOMOUS ENGAGE PROTOCOL ..... ACTIVE</div>
+          <div class="boot-line" id="s1-l6" style="color:#FF4500; font-size:30px;">
+            &gt;&gt; DEATHLIVERY ONLINE — TARGET GRID LOCKED
+            <span class="cursor-block" id="s1-cursor"></span>
+          </div>
+        </div>
+      </div>
+
+      <!-- ============================
+           SCENE 2: CONTAINER DROP (8–18s)
+           ============================ -->
+      <div id="s2" class="scene clip" data-start="8" data-duration="10" data-track-index="2">
+        <div id="s2-label">PHASE 03 — AIR DROP SEQUENCE</div>
+        <div id="s2-altitude">ALT: 6,200 FT AGL</div>
+
+        <svg id="s2-svg" viewBox="0 0 1920 1080" width="1920" height="1080"
+             style="position:absolute;inset:0;" xmlns="http://www.w3.org/2000/svg">
+
+          <!-- Aircraft silhouette (top) -->
+          <g id="s2-aircraft" opacity="0">
+            <!-- fuselage -->
+            <rect x="810" y="60" width="300" height="50" fill="none" stroke="#4A5240" stroke-width="2"/>
+            <!-- wings -->
+            <polygon points="810,85 560,120 560,130 810,100" fill="none" stroke="#4A5240" stroke-width="2"/>
+            <polygon points="1110,85 1360,120 1360,130 1110,100" fill="none" stroke="#4A5240" stroke-width="2"/>
+            <!-- tail -->
+            <polygon points="960,60 910,20 1010,20" fill="none" stroke="#4A5240" stroke-width="2"/>
+            <text x="960" y="175" text-anchor="middle" fill="#4A5240" font-family="'Share Tech Mono',monospace" font-size="14" letter-spacing="6">CARGO AIRCRAFT — RELEASE ALTITUDE 6,200FT</text>
+          </g>
+
+          <!-- Container (falling) -->
+          <g id="s2-container">
+            <!-- Main box outline -->
+            <rect id="s2-cont-body" x="835" y="150" width="250" height="140"
+                  fill="rgba(10,10,10,0.9)" stroke="#FF4500" stroke-width="2.5" opacity="0"/>
+            <!-- Corner reinforcements -->
+            <rect x="835" y="150" width="18" height="18" fill="none" stroke="#FF4500" stroke-width="2" opacity="0" id="s2-c1"/>
+            <rect x="1067" y="150" width="18" height="18" fill="none" stroke="#FF4500" stroke-width="2" opacity="0" id="s2-c2"/>
+            <rect x="835" y="272" width="18" height="18" fill="none" stroke="#FF4500" stroke-width="2" opacity="0" id="s2-c3"/>
+            <rect x="1067" y="272" width="18" height="18" fill="none" stroke="#FF4500" stroke-width="2" opacity="0" id="s2-c4"/>
+            <!-- ISO label -->
+            <text id="s2-cont-label" x="960" y="225" text-anchor="middle"
+                  fill="#FF4500" font-family="'Share Tech Mono',monospace" font-size="18" letter-spacing="4" opacity="0">
+              D3-GS × 4 UNITS
+            </text>
+            <text id="s2-cont-iso" x="960" y="248" text-anchor="middle"
+                  fill="#4A5240" font-family="'Share Tech Mono',monospace" font-size="13" letter-spacing="3" opacity="0">
+              ISO 668 · 20FT STANDARD
+            </text>
+            <!-- Drop cable -->
+            <line id="s2-cable" x1="960" y1="150" x2="960" y2="110" stroke="#4A5240" stroke-width="2" stroke-dasharray="6,4" opacity="0"/>
+          </g>
+
+          <!-- Breach panel fragments (hidden initially, appear at breach) -->
+          <g id="s2-breach" opacity="0">
+            <rect id="s2-p1" x="835" y="150" width="60" height="140" fill="rgba(255,69,0,0.08)" stroke="#FF4500" stroke-width="1.5"/>
+            <rect id="s2-p2" x="905" y="150" width="60" height="140" fill="rgba(255,69,0,0.08)" stroke="#FF4500" stroke-width="1.5"/>
+            <rect id="s2-p3" x="975" y="150" width="60" height="140" fill="rgba(255,69,0,0.08)" stroke="#FF4500" stroke-width="1.5"/>
+            <rect id="s2-p4" x="1035" y="150" width="50" height="140" fill="rgba(255,69,0,0.08)" stroke="#FF4500" stroke-width="1.5"/>
+          </g>
+
+          <!-- Unit 1 with parachute -->
+          <g id="s2-unit1" opacity="0">
+            <!-- Parachute canopy -->
+            <ellipse cx="780" cy="380" rx="60" ry="30" fill="none" stroke="#FF4500" stroke-width="2"/>
+            <!-- Parachute lines -->
+            <line x1="730" y1="405" x2="775" y2="445" stroke="#FF4500" stroke-width="1.5"/>
+            <line x1="755" y1="408" x2="777" y2="445" stroke="#FF4500" stroke-width="1.5"/>
+            <line x1="780" y1="410" x2="779" y2="445" stroke="#FF4500" stroke-width="1.5"/>
+            <line x1="805" y1="408" x2="781" y2="445" stroke="#FF4500" stroke-width="1.5"/>
+            <line x1="830" y1="405" x2="783" y2="445" stroke="#FF4500" stroke-width="1.5"/>
+            <!-- Unit box -->
+            <rect x="762" y="445" width="36" height="24" fill="rgba(10,10,10,0.9)" stroke="#E8E8E8" stroke-width="1.5"/>
+            <text x="780" y="460" text-anchor="middle" fill="#4A5240" font-family="'Share Tech Mono',monospace" font-size="9">01</text>
+          </g>
+
+          <!-- Unit 2 with parachute -->
+          <g id="s2-unit2" opacity="0">
+            <ellipse cx="960" cy="420" rx="60" ry="30" fill="none" stroke="#FF4500" stroke-width="2"/>
+            <line x1="910" y1="445" x2="955" y2="485" stroke="#FF4500" stroke-width="1.5"/>
+            <line x1="935" y1="448" x2="957" y2="485" stroke="#FF4500" stroke-width="1.5"/>
+            <line x1="960" y1="450" x2="959" y2="485" stroke="#FF4500" stroke-width="1.5"/>
+            <line x1="985" y1="448" x2="961" y2="485" stroke="#FF4500" stroke-width="1.5"/>
+            <line x1="1010" y1="445" x2="963" y2="485" stroke="#FF4500" stroke-width="1.5"/>
+            <rect x="942" y="485" width="36" height="24" fill="rgba(10,10,10,0.9)" stroke="#E8E8E8" stroke-width="1.5"/>
+            <text x="960" y="500" text-anchor="middle" fill="#4A5240" font-family="'Share Tech Mono',monospace" font-size="9">02</text>
+          </g>
+
+          <!-- Unit 3 with parachute -->
+          <g id="s2-unit3" opacity="0">
+            <ellipse cx="1140" cy="390" rx="60" ry="30" fill="none" stroke="#FF4500" stroke-width="2"/>
+            <line x1="1090" y1="415" x2="1135" y2="455" stroke="#FF4500" stroke-width="1.5"/>
+            <line x1="1115" y1="418" x2="1137" y2="455" stroke="#FF4500" stroke-width="1.5"/>
+            <line x1="1140" y1="420" x2="1139" y2="455" stroke="#FF4500" stroke-width="1.5"/>
+            <line x1="1165" y1="418" x2="1141" y2="455" stroke="#FF4500" stroke-width="1.5"/>
+            <line x1="1190" y1="415" x2="1143" y2="455" stroke="#FF4500" stroke-width="1.5"/>
+            <rect x="1122" y="455" width="36" height="24" fill="rgba(10,10,10,0.9)" stroke="#E8E8E8" stroke-width="1.5"/>
+            <text x="1140" y="470" text-anchor="middle" fill="#4A5240" font-family="'Share Tech Mono',monospace" font-size="9">03</text>
+          </g>
+
+          <!-- Ground line -->
+          <line id="s2-ground" x1="200" y1="900" x2="1720" y2="900" stroke="#4A5240" stroke-width="1" stroke-dasharray="12,8" opacity="0"/>
+          <text id="s2-ground-label" x="960" y="920" text-anchor="middle"
+                fill="#4A5240" font-family="'Share Tech Mono',monospace" font-size="14" letter-spacing="4" opacity="0">
+            GROUND LEVEL — TARGET ZONE
+          </text>
+
+          <!-- Speed/descent indicator -->
+          <g id="s2-speed" opacity="0">
+            <text x="200" y="300" fill="#4A5240" font-family="'Share Tech Mono',monospace" font-size="15" letter-spacing="3">DESCENT RATE</text>
+            <text x="200" y="325" fill="#FF4500" font-family="'Share Tech Mono',monospace" font-size="22" letter-spacing="2">180 KPH</text>
+          </g>
+        </svg>
+      </div>
+
+      <!-- ============================
+           SCENE 3: UNIT ON GROUND (18–30s)
+           ============================ -->
+      <div id="s3" class="scene clip" data-start="18" data-duration="12" data-track-index="3">
+        <div id="s3-label">PHASE 06 — GROUND COMBAT UNIT · D3-GS-001</div>
+
+        <!-- HUD stats -->
+        <div class="hud-stat" id="s3-stat1" style="left:120px; top:160px;">TREAD STATUS: NOMINAL</div>
+        <div class="hud-stat" id="s3-stat2" style="left:120px; top:190px;">AMMO LOAD: 6,000 RPD × 2</div>
+        <div class="hud-stat" id="s3-stat3" style="left:120px; top:220px;">THREAT DETECTED: 7 CONTACTS</div>
+        <div class="hud-stat" id="s3-stat4" style="right:120px; top:160px; text-align:right;">TURRET A: TRACKING</div>
+        <div class="hud-stat" id="s3-stat5" style="right:120px; top:190px; text-align:right;">TURRET B: TRACKING</div>
+        <div class="hud-stat" id="s3-stat6" style="right:120px; top:220px; text-align:right;">ENGAGE: AUTONOMOUS</div>
+
+        <svg id="s3-svg" viewBox="0 0 1920 1080" width="1920" height="1080"
+             style="position:absolute;inset:0;z-index:5;" xmlns="http://www.w3.org/2000/svg">
+
+          <!-- Ground plane lines (perspective) -->
+          <line x1="0" y1="750" x2="1920" y2="750" stroke="#1A1A1A" stroke-width="1"/>
+          <line x1="0" y1="800" x2="1920" y2="800" stroke="#1A1A1A" stroke-width="1"/>
+          <line x1="0" y1="850" x2="1920" y2="850" stroke="#141414" stroke-width="1"/>
+          <!-- Vertical ground lines (perspective vanishing) -->
+          <line x1="960" y1="750" x2="200" y2="1080" stroke="#141414" stroke-width="1"/>
+          <line x1="960" y1="750" x2="600" y2="1080" stroke="#141414" stroke-width="1"/>
+          <line x1="960" y1="750" x2="960" y2="1080" stroke="#141414" stroke-width="1"/>
+          <line x1="960" y1="750" x2="1320" y2="1080" stroke="#141414" stroke-width="1"/>
+          <line x1="960" y1="750" x2="1720" y2="1080" stroke="#141414" stroke-width="1"/>
+
+          <!-- D3-GS UNIT — Main body -->
+          <g id="s3-unit" opacity="0">
+            <!-- Tread tracks (left) -->
+            <rect x="580" y="660" width="240" height="55" rx="8" fill="rgba(0,0,0,0.9)" stroke="#4A5240" stroke-width="2"/>
+            <!-- Tread tracks (right) -->
+            <rect x="1100" y="660" width="240" height="55" rx="8" fill="rgba(0,0,0,0.9)" stroke="#4A5240" stroke-width="2"/>
+            <!-- Tread detail marks (left) -->
+            <line x1="600" y1="660" x2="600" y2="715" stroke="#333" stroke-width="1"/>
+            <line x1="625" y1="660" x2="625" y2="715" stroke="#333" stroke-width="1"/>
+            <line x1="650" y1="660" x2="650" y2="715" stroke="#333" stroke-width="1"/>
+            <line x1="675" y1="660" x2="675" y2="715" stroke="#333" stroke-width="1"/>
+            <line x1="700" y1="660" x2="700" y2="715" stroke="#333" stroke-width="1"/>
+            <line x1="725" y1="660" x2="725" y2="715" stroke="#333" stroke-width="1"/>
+            <line x1="750" y1="660" x2="750" y2="715" stroke="#333" stroke-width="1"/>
+            <line x1="775" y1="660" x2="775" y2="715" stroke="#333" stroke-width="1"/>
+            <!-- Tread detail marks (right) -->
+            <line x1="1120" y1="660" x2="1120" y2="715" stroke="#333" stroke-width="1"/>
+            <line x1="1145" y1="660" x2="1145" y2="715" stroke="#333" stroke-width="1"/>
+            <line x1="1170" y1="660" x2="1170" y2="715" stroke="#333" stroke-width="1"/>
+            <line x1="1195" y1="660" x2="1195" y2="715" stroke="#333" stroke-width="1"/>
+            <line x1="1220" y1="660" x2="1220" y2="715" stroke="#333" stroke-width="1"/>
+            <line x1="1245" y1="660" x2="1245" y2="715" stroke="#333" stroke-width="1"/>
+            <line x1="1270" y1="660" x2="1270" y2="715" stroke="#333" stroke-width="1"/>
+            <line x1="1295" y1="660" x2="1295" y2="715" stroke="#333" stroke-width="1"/>
+
+            <!-- Chassis body -->
+            <rect x="640" y="590" width="640" height="90" fill="rgba(10,10,10,0.95)" stroke="#E8E8E8" stroke-width="2.5"/>
+            <!-- Armor plates -->
+            <rect x="660" y="600" width="120" height="70" fill="rgba(15,15,15,0.9)" stroke="#333" stroke-width="1"/>
+            <rect x="900" y="595" width="120" height="80" fill="rgba(15,15,15,0.9)" stroke="#FF4500" stroke-width="1.5"/>
+            <rect x="1140" y="600" width="120" height="70" fill="rgba(15,15,15,0.9)" stroke="#333" stroke-width="1"/>
+
+            <!-- Central sensor array -->
+            <rect x="920" y="570" width="80" height="30" fill="rgba(5,5,5,0.95)" stroke="#FF4500" stroke-width="1.5"/>
+            <circle cx="960" cy="585" r="8" fill="none" stroke="#FF4500" stroke-width="1.5"/>
+            <circle cx="960" cy="585" r="3" fill="#FF4500"/>
+
+            <!-- Chassis label -->
+            <text x="960" y="644" text-anchor="middle" fill="#4A5240" font-family="'Share Tech Mono',monospace" font-size="14" letter-spacing="5">D3-GS-001 · DEATHLIVERY SYSTEMS</text>
+          </g>
+
+          <!-- LEFT TURRET -->
+          <g id="s3-turret-l" opacity="0">
+            <circle cx="720" cy="590" r="48" fill="rgba(5,5,5,0.95)" stroke="#FF4500" stroke-width="2.5"/>
+            <circle cx="720" cy="590" r="30" fill="rgba(5,5,5,0.95)" stroke="#333" stroke-width="1"/>
+            <!-- Barrel (will rotate) -->
+            <g id="s3-barrel-l" style="transform-origin: 720px 590px">
+              <rect x="720" y="583" width="90" height="14" rx="3" fill="rgba(10,10,10,0.95)" stroke="#FF4500" stroke-width="2"/>
+              <!-- Barrel tip detail -->
+              <line x1="800" y1="583" x2="810" y2="583" stroke="#FF4500" stroke-width="3"/>
+              <line x1="800" y1="597" x2="810" y2="597" stroke="#FF4500" stroke-width="3"/>
+            </g>
+            <text x="720" y="594" text-anchor="middle" fill="#FF4500" font-family="'Share Tech Mono',monospace" font-size="10" letter-spacing="1">M134</text>
+          </g>
+
+          <!-- RIGHT TURRET -->
+          <g id="s3-turret-r" opacity="0">
+            <circle cx="1200" cy="590" r="48" fill="rgba(5,5,5,0.95)" stroke="#FF4500" stroke-width="2.5"/>
+            <circle cx="1200" cy="590" r="30" fill="rgba(5,5,5,0.95)" stroke="#333" stroke-width="1"/>
+            <g id="s3-barrel-r" style="transform-origin: 1200px 590px">
+              <rect x="1110" y="583" width="90" height="14" rx="3" fill="rgba(10,10,10,0.95)" stroke="#FF4500" stroke-width="2"/>
+              <line x1="1110" y1="583" x2="1100" y2="583" stroke="#FF4500" stroke-width="3"/>
+              <line x1="1110" y1="597" x2="1100" y2="597" stroke="#FF4500" stroke-width="3"/>
+            </g>
+            <text x="1200" y="594" text-anchor="middle" fill="#FF4500" font-family="'Share Tech Mono',monospace" font-size="10" letter-spacing="1">M134</text>
+          </g>
+
+          <!-- TARGETING RETICLES (appear as threats detected) -->
+          <g id="s3-reticle1" opacity="0">
+            <circle cx="300" cy="480" r="35" fill="none" stroke="#CC0000" stroke-width="2"/>
+            <circle cx="300" cy="480" r="18" fill="none" stroke="#CC0000" stroke-width="1" stroke-dasharray="4,3"/>
+            <line x1="265" y1="480" x2="235" y2="480" stroke="#CC0000" stroke-width="1.5"/>
+            <line x1="335" y1="480" x2="365" y2="480" stroke="#CC0000" stroke-width="1.5"/>
+            <line x1="300" y1="445" x2="300" y2="415" stroke="#CC0000" stroke-width="1.5"/>
+            <line x1="300" y1="515" x2="300" y2="545" stroke="#CC0000" stroke-width="1.5"/>
+            <text x="300" y="555" text-anchor="middle" fill="#CC0000" font-family="'Share Tech Mono',monospace" font-size="11" letter-spacing="2">TGT-01</text>
+          </g>
+          <g id="s3-reticle2" opacity="0">
+            <circle cx="1620" cy="420" r="35" fill="none" stroke="#CC0000" stroke-width="2"/>
+            <circle cx="1620" cy="420" r="18" fill="none" stroke="#CC0000" stroke-width="1" stroke-dasharray="4,3"/>
+            <line x1="1585" y1="420" x2="1555" y2="420" stroke="#CC0000" stroke-width="1.5"/>
+            <line x1="1655" y1="420" x2="1685" y2="420" stroke="#CC0000" stroke-width="1.5"/>
+            <line x1="1620" y1="385" x2="1620" y2="355" stroke="#CC0000" stroke-width="1.5"/>
+            <line x1="1620" y1="455" x2="1620" y2="485" stroke="#CC0000" stroke-width="1.5"/>
+            <text x="1620" y="495" text-anchor="middle" fill="#CC0000" font-family="'Share Tech Mono',monospace" font-size="11" letter-spacing="2">TGT-02</text>
+          </g>
+          <g id="s3-reticle3" opacity="0">
+            <circle cx="960" cy="320" r="28" fill="none" stroke="#CC0000" stroke-width="2"/>
+            <circle cx="960" cy="320" r="14" fill="none" stroke="#CC0000" stroke-width="1" stroke-dasharray="3,2"/>
+            <line x1="932" y1="320" x2="910" y2="320" stroke="#CC0000" stroke-width="1.5"/>
+            <line x1="988" y1="320" x2="1010" y2="320" stroke="#CC0000" stroke-width="1.5"/>
+            <line x1="960" y1="292" x2="960" y2="270" stroke="#CC0000" stroke-width="1.5"/>
+            <line x1="960" y1="348" x2="960" y2="370" stroke="#CC0000" stroke-width="1.5"/>
+            <text x="960" y="380" text-anchor="middle" fill="#CC0000" font-family="'Share Tech Mono',monospace" font-size="11" letter-spacing="2">TGT-03</text>
+          </g>
+
+          <!-- UAV DRONES launching from top of unit -->
+          <g id="s3-uav1" opacity="0">
+            <polygon points="840,550 830,570 850,570" fill="none" stroke="#FF4500" stroke-width="2"/>
+            <line x1="840" y1="570" x2="840" y2="590" stroke="#FF4500" stroke-width="1"/>
+          </g>
+          <g id="s3-uav2" opacity="0">
+            <polygon points="960,540 950,560 970,560" fill="none" stroke="#FF4500" stroke-width="2"/>
+            <line x1="960" y1="560" x2="960" y2="580" stroke="#FF4500" stroke-width="1"/>
+          </g>
+          <g id="s3-uav3" opacity="0">
+            <polygon points="1080,550 1070,570 1090,570" fill="none" stroke="#FF4500" stroke-width="2"/>
+            <line x1="1080" y1="570" x2="1080" y2="590" stroke="#FF4500" stroke-width="1"/>
+          </g>
+
+          <!-- Muzzle flash indicators (simple lines) -->
+          <g id="s3-muzzle" opacity="0">
+            <line x1="810" y1="590" x2="870" y2="570" stroke="#FF4500" stroke-width="3"/>
+            <line x1="810" y1="590" x2="870" y2="610" stroke="#FF4500" stroke-width="3"/>
+            <line x1="1110" y1="590" x2="1050" y2="570" stroke="#FF4500" stroke-width="3"/>
+            <line x1="1110" y1="590" x2="1050" y2="610" stroke="#FF4500" stroke-width="3"/>
+          </g>
+        </svg>
+      </div>
+
+      <!-- ============================
+           SCENE 4: GRID COVERAGE (30–40s)
+           ============================ -->
+      <div id="s4" class="scene clip" data-start="30" data-duration="10" data-track-index="4">
+        <div id="s4-label">PHASE 07 — GRID COVERAGE · AUTONOMOUS SUPPRESSION</div>
+
+        <svg id="s4-svg" viewBox="0 0 1920 1080" width="1920" height="1080"
+             style="position:absolute;inset:0;z-index:5;" xmlns="http://www.w3.org/2000/svg">
+
+          <!-- Top-down map grid -->
+          <g id="s4-map" opacity="0">
+            <!-- Grid cells -->
+            <g stroke="#222" stroke-width="1" fill="none">
+              <!-- 12x7 grid centered -->
+              <!-- Row lines -->
+              <line x1="360" y1="160" x2="1560" y2="160"/>
+              <line x1="360" y1="280" x2="1560" y2="280"/>
+              <line x1="360" y1="400" x2="1560" y2="400"/>
+              <line x1="360" y1="520" x2="1560" y2="520"/>
+              <line x1="360" y1="640" x2="1560" y2="640"/>
+              <line x1="360" y1="760" x2="1560" y2="760"/>
+              <line x1="360" y1="880" x2="1560" y2="880"/>
+              <!-- Col lines -->
+              <line x1="360" y1="160" x2="360" y2="880"/>
+              <line x1="460" y1="160" x2="460" y2="880"/>
+              <line x1="560" y1="160" x2="560" y2="880"/>
+              <line x1="660" y1="160" x2="660" y2="880"/>
+              <line x1="760" y1="160" x2="760" y2="880"/>
+              <line x1="860" y1="160" x2="860" y2="880"/>
+              <line x1="960" y1="160" x2="960" y2="880"/>
+              <line x1="1060" y1="160" x2="1060" y2="880"/>
+              <line x1="1160" y1="160" x2="1160" y2="880"/>
+              <line x1="1260" y1="160" x2="1260" y2="880"/>
+              <line x1="1360" y1="160" x2="1360" y2="880"/>
+              <line x1="1460" y1="160" x2="1460" y2="880"/>
+              <line x1="1560" y1="160" x2="1560" y2="880"/>
+            </g>
+
+            <!-- Grid border -->
+            <rect x="360" y="160" width="1200" height="720" fill="none" stroke="#333" stroke-width="2"/>
+
+            <!-- Grid labels -->
+            <text x="410" y="150" fill="#333" font-family="'Share Tech Mono',monospace" font-size="13" letter-spacing="2">A</text>
+            <text x="510" y="150" fill="#333" font-family="'Share Tech Mono',monospace" font-size="13" letter-spacing="2">B</text>
+            <text x="610" y="150" fill="#333" font-family="'Share Tech Mono',monospace" font-size="13" letter-spacing="2">C</text>
+            <text x="710" y="150" fill="#333" font-family="'Share Tech Mono',monospace" font-size="13" letter-spacing="2">D</text>
+            <text x="810" y="150" fill="#333" font-family="'Share Tech Mono',monospace" font-size="13" letter-spacing="2">E</text>
+            <text x="910" y="150" fill="#333" font-family="'Share Tech Mono',monospace" font-size="13" letter-spacing="2">F</text>
+            <text x="1010" y="150" fill="#333" font-family="'Share Tech Mono',monospace" font-size="13" letter-spacing="2">G</text>
+            <text x="1110" y="150" fill="#333" font-family="'Share Tech Mono',monospace" font-size="13" letter-spacing="2">H</text>
+            <text x="1210" y="150" fill="#333" font-family="'Share Tech Mono',monospace" font-size="13" letter-spacing="2">I</text>
+            <text x="1310" y="150" fill="#333" font-family="'Share Tech Mono',monospace" font-size="13" letter-spacing="2">J</text>
+            <text x="1410" y="150" fill="#333" font-family="'Share Tech Mono',monospace" font-size="13" letter-spacing="2">K</text>
+            <text x="1510" y="150" fill="#333" font-family="'Share Tech Mono',monospace" font-size="13" letter-spacing="2">L</text>
+            <text x="340" y="225" fill="#333" font-family="'Share Tech Mono',monospace" font-size="13">1</text>
+            <text x="340" y="345" fill="#333" font-family="'Share Tech Mono',monospace" font-size="13">2</text>
+            <text x="340" y="465" fill="#333" font-family="'Share Tech Mono',monospace" font-size="13">3</text>
+            <text x="340" y="585" fill="#333" font-family="'Share Tech Mono',monospace" font-size="13">4</text>
+            <text x="340" y="705" fill="#333" font-family="'Share Tech Mono',monospace" font-size="13">5</text>
+            <text x="340" y="825" fill="#333" font-family="'Share Tech Mono',monospace" font-size="13">6</text>
+          </g>
+
+          <!-- Coverage zones (filled red as units advance) -->
+          <!-- Zone 1 - unit 1 center -->
+          <rect id="s4-z1" x="760" y="400" width="300" height="240" fill="rgba(204,0,0,0.15)" stroke="#CC0000" stroke-width="1.5" opacity="0"/>
+          <!-- Zone 2 - unit 2 offset -->
+          <rect id="s4-z2" x="560" y="280" width="200" height="360" fill="rgba(204,0,0,0.12)" stroke="#CC0000" stroke-width="1.5" opacity="0"/>
+          <!-- Zone 3 - unit 3 right -->
+          <rect id="s4-z3" x="1060" y="400" width="300" height="240" fill="rgba(204,0,0,0.15)" stroke="#CC0000" stroke-width="1.5" opacity="0"/>
+          <!-- Zone 4 - overlap/cleared -->
+          <rect id="s4-z4" x="760" y="280" width="300" height="120" fill="rgba(204,0,0,0.08)" stroke="#CC0000" stroke-width="1" opacity="0"/>
+
+          <!-- UNIT icons on map -->
+          <!-- Unit 1 (triangle, top-down) -->
+          <g id="s4-u1" opacity="0">
+            <polygon points="910,520 895,545 925,545" fill="none" stroke="#FF4500" stroke-width="2.5"/>
+            <circle cx="910" cy="532" r="4" fill="#FF4500"/>
+            <text x="910" y="560" text-anchor="middle" fill="#FF4500" font-family="'Share Tech Mono',monospace" font-size="12" letter-spacing="2">01</text>
+          </g>
+          <g id="s4-u2" opacity="0">
+            <polygon points="660,520 645,545 675,545" fill="none" stroke="#FF4500" stroke-width="2.5"/>
+            <circle cx="660" cy="532" r="4" fill="#FF4500"/>
+            <text x="660" y="560" text-anchor="middle" fill="#FF4500" font-family="'Share Tech Mono',monospace" font-size="12" letter-spacing="2">02</text>
+          </g>
+          <g id="s4-u3" opacity="0">
+            <polygon points="1160,520 1145,545 1175,545" fill="none" stroke="#FF4500" stroke-width="2.5"/>
+            <circle cx="1160" cy="532" r="4" fill="#FF4500"/>
+            <text x="1160" y="560" text-anchor="middle" fill="#FF4500" font-family="'Share Tech Mono',monospace" font-size="12" letter-spacing="2">03</text>
+          </g>
+
+          <!-- UAV icons (small diamonds) -->
+          <g id="s4-drone1" opacity="0">
+            <polygon points="750,350 740,360 750,370 760,360" fill="none" stroke="#FF4500" stroke-width="1.5"/>
+          </g>
+          <g id="s4-drone2" opacity="0">
+            <polygon points="960,250 950,260 960,270 970,260" fill="none" stroke="#FF4500" stroke-width="1.5"/>
+          </g>
+          <g id="s4-drone3" opacity="0">
+            <polygon points="1170,310 1160,320 1170,330 1180,320" fill="none" stroke="#FF4500" stroke-width="1.5"/>
+          </g>
+
+          <!-- Status panel (right side) -->
+          <g id="s4-panel" opacity="0">
+            <rect x="1620" y="200" width="240" height="320" fill="rgba(5,5,5,0.9)" stroke="#333" stroke-width="1.5"/>
+            <rect x="1620" y="200" width="240" height="4" fill="#FF4500"/>
+            <text x="1740" y="230" text-anchor="middle" fill="#FF4500" font-family="'Share Tech Mono',monospace" font-size="13" letter-spacing="3">MISSION STATUS</text>
+            <line x1="1635" y1="240" x2="1845" y2="240" stroke="#333" stroke-width="1"/>
+            <text x="1635" y="265" fill="#4A5240" font-family="'Share Tech Mono',monospace" font-size="11" letter-spacing="2">UNITS ACTIVE</text>
+            <text x="1635" y="285" fill="#E8E8E8" font-family="'Share Tech Mono',monospace" font-size="16" letter-spacing="2">3 / 4</text>
+            <text x="1635" y="315" fill="#4A5240" font-family="'Share Tech Mono',monospace" font-size="11" letter-spacing="2">GRID CLEARED</text>
+            <text x="1635" y="335" fill="#CC0000" font-family="'Share Tech Mono',monospace" font-size="16" letter-spacing="2">47%</text>
+            <text x="1635" y="365" fill="#4A5240" font-family="'Share Tech Mono',monospace" font-size="11" letter-spacing="2">TARGETS ELIM</text>
+            <text x="1635" y="385" fill="#E8E8E8" font-family="'Share Tech Mono',monospace" font-size="16" letter-spacing="2">12</text>
+            <text x="1635" y="415" fill="#4A5240" font-family="'Share Tech Mono',monospace" font-size="11" letter-spacing="2">AMMO REM (EST)</text>
+            <text x="1635" y="435" fill="#E8E8E8" font-family="'Share Tech Mono',monospace" font-size="16" letter-spacing="2">89%</text>
+            <text x="1635" y="480" fill="#CC0000" font-family="'Share Tech Mono',monospace" font-size="12" letter-spacing="2">⚠ AUTONOMOUS</text>
+            <text x="1635" y="500" fill="#CC0000" font-family="'Share Tech Mono',monospace" font-size="12" letter-spacing="2">  ENGAGE ACTIVE</text>
+          </g>
+
+          <!-- Compass -->
+          <g id="s4-compass" opacity="0">
+            <circle cx="200" cy="200" r="50" fill="rgba(5,5,5,0.9)" stroke="#333" stroke-width="1.5"/>
+            <line x1="200" y1="160" x2="200" y2="150" stroke="#CC0000" stroke-width="2"/>
+            <line x1="200" y1="240" x2="200" y2="250" stroke="#4A5240" stroke-width="2"/>
+            <line x1="160" y1="200" x2="150" y2="200" stroke="#4A5240" stroke-width="2"/>
+            <line x1="240" y1="200" x2="250" y2="200" stroke="#4A5240" stroke-width="2"/>
+            <text x="200" y="148" text-anchor="middle" fill="#CC0000" font-family="'Share Tech Mono',monospace" font-size="12">N</text>
+            <text x="200" y="265" text-anchor="middle" fill="#4A5240" font-family="'Share Tech Mono',monospace" font-size="12">S</text>
+            <text x="255" y="204" text-anchor="start" fill="#4A5240" font-family="'Share Tech Mono',monospace" font-size="12">E</text>
+            <text x="138" y="204" text-anchor="end" fill="#4A5240" font-family="'Share Tech Mono',monospace" font-size="12">W</text>
+          </g>
+        </svg>
+      </div>
+
+      <!-- ============================
+           SCENE 5: LOGO SMASH (40–45s)
+           ============================ -->
+      <div id="s5" class="scene clip" data-start="40" data-duration="5" data-track-index="5">
+        <!-- Bracket corners -->
+        <div id="s5-br-tl" class="s5-bracket"></div>
+        <div id="s5-br-tr" class="s5-bracket"></div>
+        <div id="s5-br-bl" class="s5-bracket"></div>
+        <div id="s5-br-br" class="s5-bracket"></div>
+
+        <!-- Horizontal divider -->
+        <div id="s5-divider"></div>
+
+        <!-- Logo -->
+        <div id="s5-logo">DEATHLIVERY</div>
+        <div id="s5-sub">D3-GS · AUTONOMOUS · OVERWHELMING FORCE</div>
+      </div>
+
+    </div><!-- end #root -->
+
+    <script>
+      window.__timelines = window.__timelines || {};
+      const tl = gsap.timeline({ paused: true });
+
+      /* ========================================
+         SCENE 1: Boot Protocol (0–8s)
+         ======================================== */
+      tl.to("#s1-title", { opacity: 1, duration: 1.2, ease: "power2.out" }, 0.3);
+
+      // Boot lines stagger in
+      tl.to("#s1-l0", { opacity: 1, duration: 0.3, ease: "power1.out" }, 1.8);
+      tl.to("#s1-l1", { opacity: 1, duration: 0.3, ease: "power1.out" }, 2.2);
+      tl.to("#s1-l2", { opacity: 1, duration: 0.3, ease: "power1.out" }, 2.6);
+      tl.to("#s1-l3", { opacity: 1, duration: 0.3, ease: "power1.out" }, 3.0);
+      tl.to("#s1-l4", { opacity: 1, duration: 0.3, ease: "power1.out" }, 3.4);
+      tl.to("#s1-l5", { opacity: 1, duration: 0.3, ease: "power1.out" }, 3.8);
+      tl.to("#s1-l6", { opacity: 1, duration: 0.4, ease: "power1.out" }, 4.3);
+
+      // Blinking cursor: repeat 4 times
+      tl.to("#s1-cursor", { opacity: 1, duration: 0.01 }, 4.4);
+      tl.to("#s1-cursor", { opacity: 0, duration: 0.01 }, 4.9);
+      tl.to("#s1-cursor", { opacity: 1, duration: 0.01 }, 5.4);
+      tl.to("#s1-cursor", { opacity: 0, duration: 0.01 }, 5.9);
+      tl.to("#s1-cursor", { opacity: 1, duration: 0.01 }, 6.4);
+      tl.to("#s1-cursor", { opacity: 0, duration: 0.01 }, 6.9);
+      tl.to("#s1-cursor", { opacity: 1, duration: 0.01 }, 7.2);
+
+      // Scene 1 exit
+      tl.to("#s1", { opacity: 0, duration: 0.5, ease: "power2.in" }, 7.4);
+
+      /* Sweep bar 1→2 */
+      tl.fromTo("#sweep-1-2",
+        { x: 0, opacity: 1 },
+        { x: 1940, opacity: 1, duration: 0.65, ease: "power4.inOut" }, 7.5);
+      tl.set("#sweep-1-2", { opacity: 0 }, 8.2);
+
+      /* ========================================
+         SCENE 2: Container Drop (8–18s)
+         ======================================== */
+      tl.to("#s2-label", { opacity: 1, y: 0, duration: 0.6, ease: "power2.out" }, 8.2);
+      tl.to("#s2-altitude", { opacity: 1, duration: 0.5 }, 8.4);
+
+      // Aircraft fades in
+      tl.to("#s2-aircraft", { opacity: 1, duration: 0.8, ease: "power2.out" }, 8.2);
+
+      // Container appears attached to aircraft (cable visible)
+      tl.to("#s2-cable", { opacity: 1, duration: 0.4 }, 8.8);
+      tl.to(["#s2-cont-body","#s2-c1","#s2-c2","#s2-c3","#s2-c4","#s2-cont-label","#s2-cont-iso"], { opacity: 1, duration: 0.5 }, 9.0);
+
+      // Container releases — falls down
+      tl.to("#s2-cable", { opacity: 0, duration: 0.3 }, 9.8);
+      tl.to("#s2-container", { y: 200, duration: 2.5, ease: "power2.in" }, 10.0);
+
+      // Speed indicator
+      tl.to("#s2-speed", { opacity: 1, duration: 0.4 }, 10.2);
+
+      // Ground line
+      tl.to(["#s2-ground", "#s2-ground-label"], { opacity: 1, duration: 0.5 }, 10.5);
+
+      // Breach: container fades out, panels fly, units deploy
+      tl.to(["#s2-cont-body","#s2-c1","#s2-c2","#s2-c3","#s2-c4","#s2-cont-label","#s2-cont-iso"],
+        { opacity: 0, duration: 0.25, ease: "power3.in" }, 12.3);
+      tl.to("#s2-breach", { opacity: 1, duration: 0.15 }, 12.3);
+      tl.to("#s2-p1", { x: -120, y: 40, rotate: -25, opacity: 0, duration: 0.8, ease: "power2.out" }, 12.35);
+      tl.to("#s2-p2", { x: -40, y: -30, rotate: -10, opacity: 0, duration: 0.8, ease: "power2.out" }, 12.35);
+      tl.to("#s2-p3", { x: 40, y: -30, rotate: 10, opacity: 0, duration: 0.8, ease: "power2.out" }, 12.35);
+      tl.to("#s2-p4", { x: 120, y: 40, rotate: 25, opacity: 0, duration: 0.8, ease: "power2.out" }, 12.35);
+
+      // Units deploy with parachutes
+      tl.to("#s2-unit1", { opacity: 1, duration: 0.3 }, 12.5);
+      tl.to("#s2-unit2", { opacity: 1, duration: 0.3 }, 12.7);
+      tl.to("#s2-unit3", { opacity: 1, duration: 0.3 }, 12.9);
+
+      // Units drift down slowly
+      tl.to(["#s2-unit1","#s2-unit2","#s2-unit3"],
+        { y: 280, duration: 4.5, ease: "power1.in" }, 12.8);
+
+      // Hide container SVG group
+      tl.to("#s2-container", { opacity: 0, duration: 0.2 }, 12.5);
+
+      // Scene 2 exit
+      tl.to("#s2", { opacity: 0, duration: 0.5, ease: "power2.in" }, 17.4);
+
+      /* Sweep bar 2→3 */
+      tl.fromTo("#sweep-2-3",
+        { x: 1940, opacity: 1 },
+        { x: 0, opacity: 1, duration: 0.65, ease: "power4.inOut" }, 17.5);
+      tl.set("#sweep-2-3", { opacity: 0 }, 18.2);
+
+      /* ========================================
+         SCENE 3: Unit on Ground (18–30s)
+         ======================================== */
+      tl.to("#s3-label", { opacity: 1, duration: 0.6 }, 18.3);
+
+      // Unit body drops in
+      tl.fromTo("#s3-unit", { opacity: 0, y: -60 }, { opacity: 1, y: 0, duration: 0.8, ease: "expo.out" }, 18.5);
+
+      // Turrets appear
+      tl.to("#s3-turret-l", { opacity: 1, duration: 0.5 }, 19.2);
+      tl.to("#s3-turret-r", { opacity: 1, duration: 0.5 }, 19.4);
+
+      // Barrels rotate (L sweeps left, R sweeps right — using rotateZ from transform-origin)
+      tl.to("#s3-barrel-l", { rotate: -35, duration: 2.5, ease: "power1.inOut" }, 20.0);
+      tl.to("#s3-barrel-r", { rotate: 35, duration: 2.5, ease: "power1.inOut" }, 20.0);
+      tl.to("#s3-barrel-l", { rotate: 15, duration: 2.0, ease: "power1.inOut" }, 23.0);
+      tl.to("#s3-barrel-r", { rotate: -15, duration: 2.0, ease: "power1.inOut" }, 23.0);
+
+      // Reticles pop in
+      tl.fromTo("#s3-reticle1", { opacity: 0, scale: 2 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2)" }, 20.5);
+      tl.fromTo("#s3-reticle2", { opacity: 0, scale: 2 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2)" }, 21.0);
+      tl.fromTo("#s3-reticle3", { opacity: 0, scale: 2 }, { opacity: 1, scale: 1, duration: 0.4, ease: "back.out(2)" }, 21.5);
+
+      // HUD stats
+      tl.to(["#s3-stat1","#s3-stat2","#s3-stat3"], { opacity: 1, stagger: 0.15, duration: 0.4 }, 19.5);
+      tl.to(["#s3-stat4","#s3-stat5","#s3-stat6"], { opacity: 1, stagger: 0.15, duration: 0.4 }, 19.7);
+
+      // UAVs launch upward
+      tl.to(["#s3-uav1","#s3-uav2","#s3-uav3"], { opacity: 1, stagger: 0.2, duration: 0.3 }, 22.0);
+      tl.to("#s3-uav1", { y: -180, x: -60, duration: 2.5, ease: "power2.out" }, 22.1);
+      tl.to("#s3-uav2", { y: -220, duration: 2.5, ease: "power2.out" }, 22.3);
+      tl.to("#s3-uav3", { y: -180, x: 60, duration: 2.5, ease: "power2.out" }, 22.5);
+
+      // Muzzle flash (brief)
+      tl.to("#s3-muzzle", { opacity: 1, duration: 0.05 }, 24.5);
+      tl.to("#s3-muzzle", { opacity: 0, duration: 0.1 }, 24.7);
+      tl.to("#s3-muzzle", { opacity: 1, duration: 0.05 }, 25.5);
+      tl.to("#s3-muzzle", { opacity: 0, duration: 0.1 }, 25.7);
+      tl.to("#s3-muzzle", { opacity: 1, duration: 0.05 }, 27.0);
+      tl.to("#s3-muzzle", { opacity: 0, duration: 0.1 }, 27.2);
+
+      // Scene 3 exit
+      tl.to("#s3", { opacity: 0, duration: 0.5, ease: "power2.in" }, 29.4);
+
+      /* Sweep bar 3→4 */
+      tl.fromTo("#sweep-3-4",
+        { x: 0, opacity: 1 },
+        { x: 1940, opacity: 1, duration: 0.65, ease: "power4.inOut" }, 29.5);
+      tl.set("#sweep-3-4", { opacity: 0 }, 30.2);
+
+      /* ========================================
+         SCENE 4: Grid Coverage (30–40s)
+         ======================================== */
+      tl.to("#s4-label", { opacity: 1, duration: 0.6 }, 30.3);
+      tl.to("#s4-map", { opacity: 1, duration: 0.8, ease: "power2.out" }, 30.4);
+      tl.to("#s4-compass", { opacity: 1, duration: 0.5 }, 30.6);
+
+      // Units appear on map
+      tl.to(["#s4-u1","#s4-u2","#s4-u3"], { opacity: 1, stagger: 0.2, duration: 0.4, ease: "back.out(2)" }, 31.0);
+
+      // Coverage zones fill in progressively
+      tl.to("#s4-z2", { opacity: 1, duration: 0.6, ease: "power2.out" }, 31.8);
+      tl.to("#s4-z1", { opacity: 1, duration: 0.6, ease: "power2.out" }, 32.2);
+      tl.to("#s4-z3", { opacity: 1, duration: 0.6, ease: "power2.out" }, 32.6);
+      tl.to("#s4-z4", { opacity: 1, duration: 0.5, ease: "power2.out" }, 33.2);
+
+      // Units advance (move up)
+      tl.to("#s4-u1", { y: -120, duration: 3.5, ease: "power1.inOut" }, 33.5);
+      tl.to("#s4-u2", { y: -80, x: -60, duration: 3.0, ease: "power1.inOut" }, 33.8);
+      tl.to("#s4-u3", { y: -100, x: 60, duration: 3.2, ease: "power1.inOut" }, 34.0);
+
+      // Drones appear and dart around
+      tl.to(["#s4-drone1","#s4-drone2","#s4-drone3"], { opacity: 1, stagger: 0.2, duration: 0.3 }, 32.5);
+      tl.to("#s4-drone1", { y: -80, x: -100, duration: 2.5, ease: "power2.inOut" }, 32.8);
+      tl.to("#s4-drone2", { y: -120, duration: 2.5, ease: "power2.inOut" }, 33.0);
+      tl.to("#s4-drone3", { y: -90, x: 80, duration: 2.5, ease: "power2.inOut" }, 33.2);
+
+      // Status panel
+      tl.to("#s4-panel", { opacity: 1, duration: 0.6 }, 31.5);
+
+      // Scene 4 exit
+      tl.to("#s4", { opacity: 0, duration: 0.5, ease: "power2.in" }, 39.4);
+
+      /* Sweep bar 4→5 */
+      tl.fromTo("#sweep-4-5",
+        { x: 1940, opacity: 1 },
+        { x: 0, opacity: 1, duration: 0.65, ease: "power4.inOut" }, 39.5);
+      tl.set("#sweep-4-5", { opacity: 0 }, 40.2);
+
+      /* ========================================
+         SCENE 5: Logo Smash (40–45s)
+         ======================================== */
+      // Brackets slam in from corners
+      tl.to(["#s5-br-tl","#s5-br-tr","#s5-br-bl","#s5-br-br"],
+        { opacity: 1, stagger: 0.05, duration: 0.2, ease: "power4.out" }, 40.2);
+      tl.from("#s5-br-tl", { x: -40, y: -40, duration: 0.4, ease: "expo.out" }, 40.2);
+      tl.from("#s5-br-tr", { x: 40, y: -40, duration: 0.4, ease: "expo.out" }, 40.2);
+      tl.from("#s5-br-bl", { x: -40, y: 40, duration: 0.4, ease: "expo.out" }, 40.2);
+      tl.from("#s5-br-br", { x: 40, y: 40, duration: 0.4, ease: "expo.out" }, 40.2);
+
+      // Divider line extends
+      tl.to("#s5-divider", { opacity: 1, width: 1200, left: 360, duration: 0.5, ease: "power3.out" }, 40.5);
+
+      // Logo slams in
+      tl.fromTo("#s5-logo", { opacity: 0, scale: 1.4, y: 30 }, { opacity: 1, scale: 1, y: 0, duration: 0.6, ease: "expo.out" }, 40.6);
+
+      // Sub text fades in
+      tl.fromTo("#s5-sub", { opacity: 0, y: 20 }, { opacity: 1, y: 0, duration: 0.5, ease: "power2.out" }, 41.4);
+
+      // Subtle pulse on logo
+      tl.to("#s5-logo", { textShadow: "0 0 100px rgba(204,0,0,0.7)", duration: 0.8, ease: "sine.inOut" }, 42.5);
+      tl.to("#s5-logo", { textShadow: "0 0 40px rgba(204,0,0,0.3)", duration: 0.8, ease: "sine.inOut" }, 43.5);
+
+      // Final hold — fade to black
+      tl.to("#root", { backgroundColor: "#000", duration: 0.5, ease: "power2.in" }, 44.3);
+      tl.to(["#s5-logo","#s5-sub"], { opacity: 0.6, duration: 0.5 }, 44.3);
+
+      window.__timelines["main"] = tl;
+    </script>
+  </body>
+</html>
